@@ -1,7 +1,7 @@
 """
-- 爬輕小說文庫 繁體中文
+- 爬逼哩輕小說 繁體中文
 
-這支程式用於爬取輕小說文庫 (wenku8.net) 的指定小說，
+這支程式用於爬取逼哩輕小說的指定小說，
 並將內容（包含文字和圖片）轉換為繁體中文，最後生成 PDF 檔案。
 
 主要功能：
@@ -13,10 +13,11 @@
 
 使用前請注意：
 - 必須在程式碼同目錄下建立一個 'font' 資料夾。
-- 程式會自動建立一個 'wenku' 資料夾，並在其中存放爬取的資料、圖片和最終的 PDF。
+- 程式會自動建立一個 'bili' 資料夾，並在其中存放爬取的資料、圖片和最終的 PDF。
 """
 
 from bs4 import BeautifulSoup
+from bs4.element import Tag, NavigableString
 import requests
 import time
 import os
@@ -31,33 +32,74 @@ from reportlab.platypus import Spacer
 from curl_cffi import requests
 from charset_normalizer import from_bytes
 import chardet
+
 # --- 網址設定 ---
-URL_PREFIX = 'https://www.wenku8.net/novel/3/3057/'  # 輕小說文庫預設網址
+URL_PREFIX = 'https://tw.linovelib.com'
+URL_CATALOG = 'https://tw.linovelib.com/novel/2025/catalog'  # 目錄頁網址
 COOKIES_CATALOG = {
-    'cf_clearance': 'AmevgZ63B6GWUY0mvSOZKGIvNzWjoaPHMMq67EreZxg-1762308485-1.2.1.1-DzK0h18xU6DrKhneoL.Qvd5BgNqPwxam68U9ihWH4sdDo4j4x9RZp7lhcIP3ZckiKuGHOydJTMdFVsk4Ul74hzf8t9DtqkbkqoyVCfXcUhooWCdc8UOtH4A1CEY.kTOiLFJ71cqgI0H7kxtuUhDaSVfJq97z_uZskVWxrgenLgX6qq0NnWg6f20QcPL8sEaPKzggCd_VFby9u51qOne_pW1Vu2gY1FBuB1xwcwZIlgQ',
+    'night': '0',
+    '_ga': 'GA1.1.1406039415.1762417741',
+    'cf_clearance': '5kioY8b7m_cMxbNMEhK9kxVKbWfRpfCH4gl_A0gk0oA-1762417740-1.2.1.1-zVJdtxoR5tDGemvEiu.bdJblqmEdJiTOZ1zeiUymHiet5rwhFxqRg6FODLhsRw_vKnibNHgZD7YdU_EVZrXAuRqgv4CLWBj5Fpz5eMSs7oBzjRUGz.2BUsPuKYiqoQa8sQZLAcvcC5S03J8cqdb6b2qG3Rb0FAUkPbesgxZSeV7kDbuOFWIDNenX8K8CZIVnaOqshietQ14pCF_dcjRp5S3FKjdaOxr7rAB9P2DejUw',
+    '__gads': 'ID=d81052c5bd615a77:T=1762417740:RT=1762417740:S=ALNI_MbbBA0aELHcEMxg_ZylfVI38TeXVA',
+    '__gpi': 'UID=000011af278463ca:T=1762417740:RT=1762417740:S=ALNI_MbBpHj_JV-Op203q3Cv_vMTh_nYrg',
+    '__eoi': 'ID=1eb1128b1c79c0f8:T=1762417740:RT=1762417740:S=AA-AfjYWPDFcrXycAatr7eWeamYf',
+    'Hm_lvt_1251eb70bc6856bd02196c68e198ee56': '1762417742',
+    'HMACCOUNT': '5C95FD63AF543C63',
+    '_ga_NG72YQN6TX': 'GS2.1.s1762417741$o1$g1$t1762417986$j60$l0$h0',
+    'Hm_lpvt_1251eb70bc6856bd02196c68e198ee56': '1762417987',
+    'FCCDCF': '%5Bnull%2Cnull%2Cnull%2Cnull%2Cnull%2Cnull%2C%5B%5B32%2C%22%5B%5C%220d82dea0-fd26-48fa-9d8c-9c02957beed5%5C%22%2C%5B1762417740%2C966000000%5D%5D%22%5D%5D%5D',
+    'FCNEC': '%5B%5B%22AKsRol98oETVWdPV7wzf4oy3yapnzLw7zD_aZHSGJvq0G362YYgUEIXSgLfldvXWS0T_qmnohwrPIBKgjqkQlH5bUbksxpdQVKs699-LyASoJWpIaY3SgppAtuSnMhPO7gO1xWXVq_dxLs8WDt-riz11Gde__OIaWQ%3D%3D%22%5D%5D',
 }
 HEADERS_CATALOG = {
-    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
-    'accept-language': 'zh-TW,zh;q=0.9',
     'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+    'accept-language': 'zh-TW,zh;q=0.9',
+    'cache-control': 'max-age=0',
+    'priority': 'u=0, i',
+    'referer': 'https://www.google.com/',
+    'sec-ch-ua': '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'sec-fetch-dest': 'document',
+    'sec-fetch-mode': 'navigate',
+    'sec-fetch-site': 'same-origin',
+    'sec-fetch-user': '?1',
+    'upgrade-insecure-requests': '1',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+    # 'cookie': 'night=0; _ga=GA1.1.1406039415.1762417741; cf_clearance=5kioY8b7m_cMxbNMEhK9kxVKbWfRpfCH4gl_A0gk0oA-1762417740-1.2.1.1-zVJdtxoR5tDGemvEiu.bdJblqmEdJiTOZ1zeiUymHiet5rwhFxqRg6FODLhsRw_vKnibNHgZD7YdU_EVZrXAuRqgv4CLWBj5Fpz5eMSs7oBzjRUGz.2BUsPuKYiqoQa8sQZLAcvcC5S03J8cqdb6b2qG3Rb0FAUkPbesgxZSeV7kDbuOFWIDNenX8K8CZIVnaOqshietQ14pCF_dcjRp5S3FKjdaOxr7rAB9P2DejUw; __gads=ID=d81052c5bd615a77:T=1762417740:RT=1762417740:S=ALNI_MbbBA0aELHcEMxg_ZylfVI38TeXVA; __gpi=UID=000011af278463ca:T=1762417740:RT=1762417740:S=ALNI_MbBpHj_JV-Op203q3Cv_vMTh_nYrg; __eoi=ID=1eb1128b1c79c0f8:T=1762417740:RT=1762417740:S=AA-AfjYWPDFcrXycAatr7eWeamYf; Hm_lvt_1251eb70bc6856bd02196c68e198ee56=1762417742; HMACCOUNT=5C95FD63AF543C63; _ga_NG72YQN6TX=GS2.1.s1762417741$o1$g1$t1762417986$j60$l0$h0; Hm_lpvt_1251eb70bc6856bd02196c68e198ee56=1762417987; FCCDCF=%5Bnull%2Cnull%2Cnull%2Cnull%2Cnull%2Cnull%2C%5B%5B32%2C%22%5B%5C%220d82dea0-fd26-48fa-9d8c-9c02957beed5%5C%22%2C%5B1762417740%2C966000000%5D%5D%22%5D%5D%5D; FCNEC=%5B%5B%22AKsRol98oETVWdPV7wzf4oy3yapnzLw7zD_aZHSGJvq0G362YYgUEIXSgLfldvXWS0T_qmnohwrPIBKgjqkQlH5bUbksxpdQVKs699-LyASoJWpIaY3SgppAtuSnMhPO7gO1xWXVq_dxLs8WDt-riz11Gde__OIaWQ%3D%3D%22%5D%5D',
 }
 COOKIES_PAGE = {
-    'Hm_lvt_b74ae3cad0d17bb613b120c400dcef59': '1762310863',
-    'Hm_lpvt_b74ae3cad0d17bb613b120c400dcef59': '1762310863',
-    'HMACCOUNT': '50D1DFF5E9DACAF8',
-    'Hm_lvt_d72896ddbf8d27c750e3b365ea2fc902': '1762310863',
-    'Hm_lpvt_d72896ddbf8d27c750e3b365ea2fc902': '1762310863',
-    'cf_clearance': 'B30NU39Tr4eIVFnEen.h_Kfff41NNAwxnOUo_QHR1U8-1762310862-1.2.1.1-CwLnciiYNgoo7dFSDkuqCpnGDuIjo47_K4ydmnohNKanQaVCKQgpPJ0m6nBc.RlwqazKQBMrGficGavAILUvc_ls8pwoa9a7OBDNyiiSKswqIPWAFu5HRpG68Pnm7CFllnhqz8OpBDMjXjgNSWM_yPRpK0v4wJCDDU3rpxC5wK3Sj0OV4ZtaDnBOzrRt.sx7X9EvJUylVd80UthATYWUp48dyH3gHS_53t69VF5pwdk',
-    '_clck': '12b30wd%5E2%5Eg0r%5E0%5E2135',
-    '_clsk': '1tkid78%5E1762310864450%5E1%5E1%5Ea.clarity.ms%2Fcollect',
+    'night':
+    '0',
+    '_ga':
+    'GA1.1.858433580.1740736270',
+    'Hm_lvt_1251eb70bc6856bd02196c68e198ee56':
+    '1740736292',
+    'HMACCOUNT':
+    '8BA7214072928503',
+    'cf_clearance':
+    'hSIMyDbQVA5kxCW0I9bg5gi.fGVX1HgEa7B5SuYPtLQ-1740737284-1.2.1.1-DXxrnXKGpOknt3YCB0xcsKY1CywTxwzap_IxHK8TxiSSMiDUO0VWTXZtHsdr5ZOAFoKGPDAx5FT.kDdnxMq5EimgHIfVxrB1HXxfS_l1DHgM3.nGRnAGbSC1E6Hi6Rh.xTR67tSu_QET62ogqB.QZmzfVPfMiHJa1_Cz4yUpQ.E_cTl7Rrs.86MPXdE1bSXksSho8egWpSI5nUQtrXUUtFX.053CYaMxj47H4F54KsIJtHqnJyNvUlqdL65uiD.f5HGuLb9RWSWZU2NcFLzxxXRghrhjdTQNZUxvlrrFEas',
+    '__gads':
+    'ID=28b11837f9361c7c:T=1740736353:RT=1740737284:S=ALNI_MbeLb7vF0IR-QpiPBywKP3QgyZNjA',
+    '__gpi':
+    'UID=0000104e0081caf1:T=1740736353:RT=1740737284:S=ALNI_Mbbj-l5DyId6x2eRnmgDnd32aa6dA',
+    '__eoi':
+    'ID=96dde09a29d7d84c:T=1740736353:RT=1740737284:S=AA-AfjYSdS4zoJuD8xfQe4Bwy3B_',
+    'jieqiRecentRead':
+    '3095.154933.0.1.1740737288.0',
+    '_ga_NG72YQN6TX':
+    'GS1.1.1740736270.1.1.1740737289.0.0.0',
+    'Hm_lpvt_1251eb70bc6856bd02196c68e198ee56':
+    '1740737290',
+    'FCNEC':
+    '%5B%5B%22AKsRol8K90u22_760XILll97A0Z2PjjiAKwe_dKYM85RyT3T7KyI7_rrety0UH6lZasVeQNTWHT99Yd8oq6e-Yj8QxSgFIDtQsadgRKNooT6OMnfMpwScUiabH4ZerH8z2fsDJ-SNqfwYLFp5xXJfk2ZVlsYhrBZqA%3D%3D%22%5D%5D',
 }
 HEADERS_PAGE = {
     'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-    'accept-language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7,zh-CN;q=0.6',
+    'accept-language': 'zh-TW,zh;q=0.9',
     'cache-control': 'no-cache',
     'pragma': 'no-cache',
     'priority': 'u=0, i',
-    'sec-ch-ua': '"Google Chrome";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
+    'sec-ch-ua': '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"',
     'sec-ch-ua-mobile': '?0',
     'sec-ch-ua-platform': '"Windows"',
     'sec-fetch-dest': 'document',
@@ -65,15 +107,29 @@ HEADERS_PAGE = {
     'sec-fetch-site': 'none',
     'sec-fetch-user': '?1',
     'upgrade-insecure-requests': '1',
-    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
-    # 'cookie': 'Hm_lvt_b74ae3cad0d17bb613b120c400dcef59=1762310863; Hm_lpvt_b74ae3cad0d17bb613b120c400dcef59=1762310863; HMACCOUNT=50D1DFF5E9DACAF8; Hm_lvt_d72896ddbf8d27c750e3b365ea2fc902=1762310863; Hm_lpvt_d72896ddbf8d27c750e3b365ea2fc902=1762310863; cf_clearance=B30NU39Tr4eIVFnEen.h_Kfff41NNAwxnOUo_QHR1U8-1762310862-1.2.1.1-CwLnciiYNgoo7dFSDkuqCpnGDuIjo47_K4ydmnohNKanQaVCKQgpPJ0m6nBc.RlwqazKQBMrGficGavAILUvc_ls8pwoa9a7OBDNyiiSKswqIPWAFu5HRpG68Pnm7CFllnhqz8OpBDMjXjgNSWM_yPRpK0v4wJCDDU3rpxC5wK3Sj0OV4ZtaDnBOzrRt.sx7X9EvJUylVd80UthATYWUp48dyH3gHS_53t69VF5pwdk; _clck=12b30wd%5E2%5Eg0r%5E0%5E2135; _clsk=1tkid78%5E1762310864450%5E1%5E1%5Ea.clarity.ms%2Fcollect',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
 }
-
+HEADERS_IMAGE = {
+    'accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+    'accept-language': 'zh-TW,zh;q=0.9',
+    'cache-control': 'no-cache',
+    'pragma': 'no-cache',
+    'priority': 'i',
+    'referer': 'https://tw.linovelib.com/',
+    'sec-ch-ua': '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'sec-fetch-dest': 'image',
+    'sec-fetch-mode': 'no-cors',
+    'sec-fetch-site': 'cross-site',
+    'sec-fetch-storage-access': 'none',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36'
+}
 # --- 常量設定 ---
 FONT_PATH = "font/NotoSerifTC-"  # 字型檔案路徑前綴
-DATA_DIR = 'wenku'  # 主要資料夾名稱
-SAVE_DIR = 'wenku/pic'  # 圖片儲存資料夾
-OUTPUT_DIRS = ['novel_text', 'pic', 'pdf_file']  # 'wenku' 底下的子資料夾
+DATA_DIR = 'bili'  # 主要資料夾名稱
+SAVE_DIR = 'bili/pic' # 圖片儲存資料夾
+OUTPUT_DIRS = ['novel_text', 'pic', 'pdf_file']  # 'bili' 底下的子資料夾
 PAGE_WIDTH, PAGE_HEIGHT = A4  # PDF 頁面大小
 translate_tool = OpenCC('s2twp')  # 簡中轉繁中 (s2twp: 簡轉繁，包含用語轉換)
 
@@ -105,7 +161,7 @@ def save_image(image_index, pic_url):
     :param pic_url: 圖片的 URL
     :return: 儲存的圖片路徑
     """
-    response = requests.get(pic_url, headers=HEADERS_PAGE, cookies=COOKIES_PAGE, timeout=10)
+    response = requests.get(pic_url, headers=HEADERS_IMAGE, timeout=10)
     if response.status_code != 200:
         print(f"Error: 無法下載圖片 {pic_url}，狀態碼: {response.status_code}")
         return None
@@ -142,41 +198,42 @@ def append_image_to_story(image_path, story):
 def find_names_and_urls():
     """
     爬取目錄頁，獲取所有書卷名、章節名、章節網址
-    並將這些資訊存儲到 wenku 資料夾中的 .txt 檔案。
+    並將這些資訊存儲到 bili 資料夾中的 .txt 檔案。
     """
     print("正在爬取目錄頁...")
-    category_page = fetch_website_content(URL_PREFIX, HEADERS_CATALOG, COOKIES_CATALOG)
+    category_page = fetch_website_content(URL_CATALOG, HEADERS_CATALOG, COOKIES_CATALOG)
     soup = BeautifulSoup(category_page.content, 'lxml')
-    catalog = soup.find('table', class_='css')
-    table_data = catalog.find_all('td')
-
+    catalog = soup.find('div', class_='chapter-ol-catalog')
+    table_data = catalog.find_all('ul', class_='volume-chapters')
+    
     title_count = 0  # 累計章節 (ccss) 數量
     title_gap = []   # 儲存每個書卷 (vcss) 開始前的章節總數
     
     # 這個迴圈用來計算 'title_gap'，以便後續知道每一卷包含哪些章節
-    for info in table_data:
-        if info.get('class'):
-            if 'vcss' in info['class']:
-                # 遇到書卷 (vcss)，紀錄當前的章節總數
-                title_gap.append(title_count)
-            elif 'ccss' in info['class'] and info.text.strip().replace(u'\xa0', ''):
-                # 遇到章節 (ccss)，章節計數+1
-                title_count += 1
+    for ul in table_data:
+        for li in ul.find_all('li'):
+            if li.get('class'):
+                if 'chapter-bar' in li['class']:
+                    # 遇到書卷 (vcss)，紀錄當前的章節總數
+                    title_gap.append(title_count)
+                elif 'jsChapter' in li['class'] and li.text.strip().replace(u'\xa0', ''):
+                    # 遇到章節 (ccss)，章節計數 + 1
+                    title_count += 1
     title_gap.append(title_count)  # 補上最後一個書卷的結尾
 
     # 儲存 'title_gap' 資訊
     save_important_stuff('title_gap.txt', '\n'.join(map(str, title_gap)))
 
     # 提取所有章節標題
-    titles = [title.text.replace(' ', '') for title in catalog.find_all('td', class_='ccss') if title.a]
+    titles = [li.text.replace(' ', '') for ul in table_data for li in ul.find_all('li', class_='jsChapter') if li.a]
     save_important_stuff('title.txt', '\n'.join(titles))
 
     # 提取所有章節網址
-    websites = [title.a['href'] for title in catalog.find_all('td', class_='ccss') if title.a]
+    websites = [li.a['href'] for ul in table_data for li in ul.find_all('li', class_='jsChapter') if li.a]
     save_important_stuff('website.txt', '\n'.join(websites))
 
     # 提取所有書卷名稱
-    book_names = [book.text for book in catalog.find_all('td', class_='vcss')]
+    book_names = [li.h3.text for ul in table_data for li in ul.find_all('li', class_='chapter-bar') if li.h3]
     save_important_stuff('book_name.txt', '\n'.join(book_names))
     print("目錄頁爬取完畢，資料已儲存。")
 
@@ -216,7 +273,7 @@ def prompt_user_to_choose():
 
 def load_from_file(filename):
     """
-    輔助函數：從 'wenku' 資料夾中的文件讀取所有行
+    輔助函數：從 'bili' 資料夾中的文件讀取所有行
     """
     with open(os.path.join(DATA_DIR, filename), 'r', encoding='utf-8') as f:
         return f.readlines()
@@ -247,7 +304,7 @@ def download_content(chosen_books):
             url = URL_PREFIX + websites[title_id].strip()
             page_content = fetch_website_content(url, HEADERS_PAGE, COOKIES_PAGE)
             soup = BeautifulSoup(page_content.content, 'lxml')
-            content = soup.find('div', {'id': 'content'})
+            content = soup.find('div', {'id': 'acontent'})
             
             if content:
                 cur_title = f'<< {translate_tool.convert(titles[title_id].strip())} >>'
@@ -272,30 +329,50 @@ image_index = 0  # 全局圖片索引，用於命名圖片檔案
 
 def process_content(content, story):
     """
-    處理單一章節的內容，將文字和圖片添加到 story 列表。
+    處理單一章節的內容，將文字和圖片【依序】添加到 story 列表。
     
     :param content: 包含章節內容的 BeautifulSoup 元素
     :param story: ReportLab 的 story 列表
     """
-    pics = content.find_all('div', class_='divimage')
-    global image_index
     
-    if pics:
-        # 如果該章節有插圖
-        for pic in pics:
-            if pic.a and pic.a.get("href"):
-                img_path = save_image(image_index, pic.a["href"])
-                image_index += 1
-                append_image_to_story(img_path, story)
+    # 遍歷 content 的所有第一層子節點 (包括標籤和純文字字串)
+    # 這樣才能維持圖文的原始順序
+    global image_index
+    for element in content.contents:
+        # --- 情況 1：如果節點是「標籤」 (Tag) ---
+        if isinstance(element, Tag):
+            # 檢查這個標籤是否為我們定義的「圖片容器」
+            if element.name == 'img':
+                # 是圖片，執行圖片處理邏輯
+                if element.get("src") and '/images/sloading.svg' not in element["src"]:
+                    img_path = save_image(image_index, element["src"])
+                    image_index += 1
+                    append_image_to_story(img_path, story)
+                elif element.get("data-src") and '/images/sloading.svg' not in element["data-src"]:
+                    img_path = save_image(image_index, element["data-src"])
+                    image_index += 1
+                    append_image_to_story(img_path, story)
+                else:
+                    print(" 警告：找到 divimage 但無法解析圖片 src")
+            
+            # 如果是其他標籤 (例如 <p>, <div> 等)，包含我們想要的文字
             else:
-                print("  警告：找到 divimage 但無法解析圖片 href")
-    else:
-        # 如果該章節沒有插圖 (純文字)
-        for element in content:
-            # 排除網站的廣告/簽名行
-            if 'http://www.wenku8.com' not in element.text:
+                # 提取標籤內的所有文字
+                text = element.get_text(strip=True)
                 # 清理多餘的空白和特殊字元
-                line = element.text.strip().replace(' ', '').replace(u'\xa0', '')
+                if text:
+                    line = text.replace(' ', '').replace(u'\xa0', '')
+                    if line:
+                        # 將簡轉繁後的文字段落添加到 story
+                        story.append(Paragraph(translate_tool.convert(line), style_normal))
+
+        # --- 情況 2：如果節點是「純文字字串」 (NavigableString) ---
+        # (這種情況可能發生於文字沒有被 <p> 標籤包住)
+        elif isinstance(element, NavigableString):
+            text = element.string.strip()
+            # 清理多餘的空白和特殊字元
+            if text:
+                line = text.replace(' ', '').replace(u'\xa0', '')
                 if line:
                     # 將簡轉繁後的文字段落添加到 story
                     story.append(Paragraph(translate_tool.convert(line), style_normal))
@@ -312,7 +389,7 @@ def generate_pdf(story, book_name, book_id):
     safe_book_name = translate_tool.convert(book_name)
     # 避免檔案名稱中包含非法字元 (簡易處理)
     safe_book_name = safe_book_name.replace('/', '_').replace('\\', '_').replace(':', '_')
-    filename = f'wenku/pdf_file/{book_id}_{safe_book_name}.pdf'
+    filename = f'{DATA_DIR}/pdf_file/{book_id}_{safe_book_name}.pdf'
     
     try:
         pdf_template = SimpleDocTemplate(
