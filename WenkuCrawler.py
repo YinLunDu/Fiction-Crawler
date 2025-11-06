@@ -11,16 +11,8 @@
 4. 使用 opencc 將簡體中文轉換為繁體中文（台灣用語）。
 5. 使用 reportlab 將處理後的內容生成 PDF 檔案，每卷一個 PDF。
 
-依賴套件：
-- beautifulsoup4
-- requests
-- opencc-python-reimplemented
-- reportlab
-- lxml
-
 使用前請注意：
 - 必須在程式碼同目錄下建立一個 'font' 資料夾。
-- 'font' 資料夾中需要有 'NotoSansTC-Regular.ttf' 和 'NotoSansTC-Bold.ttf' 字型檔案。
 - 程式會自動建立一個 'wenku' 資料夾，並在其中存放爬取的資料、圖片和最終的 PDF。
 """
 
@@ -34,7 +26,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import SimpleDocTemplate, Paragraph, PageBreak, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
+from reportlab.lib.units import cm, inch
 from reportlab.platypus import Spacer
 from curl_cffi import requests
 from charset_normalizer import from_bytes
@@ -78,7 +70,7 @@ HEADERS_PAGE = {
 }
 
 # --- 常量設定 ---
-FONT_PATH = "font/NotoSansTC-"  # 字型檔案路徑前綴
+FONT_PATH = "font/NotoSerifTC-"  # 字型檔案路徑前綴
 DATA_DIR = 'wenku'  # 主要資料夾名稱
 OUTPUT_DIRS = ['novel_text', 'pic', 'pdf_file']  # 'wenku' 底下的子資料夾
 PAGE_WIDTH, PAGE_HEIGHT = A4  # PDF 頁面大小
@@ -317,7 +309,14 @@ def generate_pdf(story, book_name, book_id):
     filename = f'wenku/pdf_file/{book_id}_{safe_book_name}.pdf'
     
     try:
-        pdf_template = SimpleDocTemplate(filename, pagesize=A4)
+        pdf_template = SimpleDocTemplate(
+            filename,
+            pagesize=A4,
+            leftMargin=2*cm,
+            rightMargin=2*cm,
+            topMargin=2*cm,
+            bottomMargin=2*cm
+        )
         pdf_template.build(story)
     except Exception as e:
         print(f"生成 PDF {filename} 時發生錯誤: {e}")
